@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iterative Mapping & Chaos Dynamics Simulator</title>
+    <!-- Tailwind CSS for modern responsive layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Math.js for safe mathematical expression evaluation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+    <!-- Chart.js for time-series and cobweb plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for iconography -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar styling for data tables */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+                    <i class="fa-solid fa-square-root-variable text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
+                        Chaos & Iterative Map Explorer
+                    </h1>
+                    <p class="text-xs text-slate-400">Sensitivity to Initial Conditions Visualizer</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 text-xs text-slate-400 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/50">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Recursive Mapping $X_{n+1} = f(X_n)$</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Controls Sidebar (4 Columns on Desktop) -->
+        <aside class="lg:col-span-4 flex flex-col space-y-6">
+            
+            <!-- Parameters Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders"></i> Simulation Setup
+                    </h2>
+                    <button id="runBtn" class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 shadow-lg shadow-indigo-600/30">
+                        <i class="fa-solid fa-play"></i> Run Map
+                    </button>
+                </div>
+
+                <!-- Equation Input -->
+                <div class="space-y-1.5">
+                    <label for="eqInput" class="block text-xs font-medium text-slate-300">
+                        Recursive Equation $f(x)$
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="eqInput" value="x^2 * sin(x)" 
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-mono text-emerald-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                            placeholder="e.g. x^2 * sin(x) or 3*x + 4">
+                    </div>
+                    <p id="eqError" class="text-xs text-rose-400 hidden mt-1"><i class="fa-solid fa-circle-exclamation mr-1"></i><span>Invalid equation format</span></p>
+                </div>
+
+                <!-- Presets -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-medium text-slate-400">Presets & Classic Maps</label>
+                    <div class="flex flex-wrap gap-1.5" id="presetsContainer">
+                        <button data-eq="x^2 * sin(x)" data-x0="1.2" data-n="50" class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/60 transition">
+                            $x^2 \sin(x)$
+                        </button>
+                        <button data-eq="3*x + 4" data-x0="-1.5" data-n="20" class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/60 transition">
+                            Linear ($3x + 4$)
+                        </button>
+                        <button data-eq="3.9 * x * (1 - x)" data-x0="0.4" data-n="60" class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/60 transition">
+                            Logistic Map
+                        </button>
+                        <button data-eq="x^2 - 1.4" data-x0="0.1" data-n="50" class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/60 transition">
+                            Quadratic ($x^2 - 1.4$)
+                        </button>
+                        <button data-eq="cos(x)" data-x0="0.5" data-n="30" class="preset-btn text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700/60 transition">
+                            Fixed Point ($\cos x$)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Initial Condition & Iterations Grid -->
+                <div class="grid grid-cols-2 gap-4 pt-2">
+                    <div class="space-y-1.5">
+                        <label for="x0Input" class="block text-xs font-medium text-slate-300">Base $X_0$ (Start)</label>
+                        <input type="number" id="x0Input" step="any" value="1.2" 
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-indigo-300 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label for="iterInput" class="block text-xs font-medium text-slate-300">Iterations ($N$)</label>
+                        <input type="number" id="iterInput" min="5" max="500" value="50" 
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-indigo-300 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Deviations Selection -->
+                <div class="space-y-2 border-t border-slate-800 pt-4">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-medium text-slate-300">
+                            Deviations from $X_0$ to Plot
+                        </label>
+                        <div class="flex space-x-2 text-[10px]">
+                            <button id="selectAllDevs" class="text-indigo-400 hover:underline">Select All</button>
+                            <span class="text-slate-600">|</span>
+                            <button id="clearDevs" class="text-slate-400 hover:underline">Clear</button>
+                        </div>
+                    </div>
+                    <div id="deviationsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <!-- Deviation checkboxes inserted via Javascript -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Theory Box -->
+            <div class="bg-indigo-950/30 border border-indigo-900/40 rounded-2xl p-4 text-xs text-slate-300 space-y-2">
+                <div class="font-semibold text-indigo-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lightbulb"></i> Chaos & Sensitivity
+                </div>
+                <p>
+                    In linear maps ($3x+4$), trajectories diverge smoothly without returning. In non-linear maps, tiny deviations (like 1% or 2%) can initially follow similar paths but eventually split wildly—this is the signature of <strong>chaos</strong> (Lyapunov divergence).
+                </p>
+            </div>
+
+        </aside>
+
+        <!-- Visualization Panel (8 Columns on Desktop) -->
+        <section class="lg:col-span-8 flex flex-col space-y-6">
+
+            <!-- Chart 1: Time Series Plot -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-2 border-b border-slate-800">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-line text-indigo-400"></i> Iteration Trajectories ($X_n$ vs $n$)
+                        </h2>
+                        <p class="text-xs text-slate-400">Compares trajectories of deviated initial conditions</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button id="toggleLogScale" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition">
+                            Scale: Linear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas Wrapper -->
+                <div class="relative w-full h-80">
+                    <canvas id="timeSeriesChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Grid for Cobweb & Summary Table -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- Chart 2: Cobweb Plot -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+                    <div class="mb-3 pb-2 border-b border-slate-800">
+                        <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-spider text-purple-400"></i> Cobweb Plot (Base $X_0$)
+                        </h2>
+                        <p class="text-xs text-slate-400">Shows $y=f(x)$, $y=x$, and iterative bounce path</p>
+                    </div>
+                    <div class="relative w-full h-64">
+                        <canvas id="cobwebChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Summary Data Table -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+                    <div class="mb-3 pb-2 border-b border-slate-800 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                                <i class="fa-solid fa-table-list text-pink-400"></i> Final State Divergence
+                            </h2>
+                            <p class="text-xs text-slate-400">Value of $X_N$ at final step $N$</p>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto max-h-60 pr-1">
+                        <table class="w-full text-left text-xs">
+                            <thead class="text-slate-400 border-b border-slate-800 sticky top-0 bg-slate-900">
+                                <tr>
+                                    <th class="pb-2 font-medium">Deviation</th>
+                                    <th class="pb-2 font-medium">Start ($X_0$)</th>
+                                    <th class="pb-2 font-medium text-right">Final ($X_N$)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summaryTableBody" class="divide-y divide-slate-800/50 text-slate-300 font-mono">
+                                <!-- Table rows injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // Standard preset deviation percentages
+        const DEVIATION_CONFIG = [
+            { label: 'Base X₀ (0%)', pct: 0, color: '#6366f1', enabled: true },
+            { label: '+1%', pct: 1, color: '#10b981', enabled: true },
+            { label: '+2%', pct: 2, color: '#06b6d4', enabled: false },
+            { label: '+3%', pct: 3, color: '#3b82f6', enabled: false },
+            { label: '+4%', pct: 4, color: '#8b5cf6', enabled: false },
+            { label: '+5%', pct: 5, color: '#ec4899', enabled: true },
+            { label: '+10%', pct: 10, color: '#f59e0b', enabled: true },
+            { label: '+20%', pct: 20, color: '#ef4444', enabled: false },
+            { label: '+25%', pct: 25, color: '#f97316', enabled: true },
+            { label: '+50%', pct: 50, color: '#a855f7', enabled: false },
+            { label: '+100%', pct: 100, color: '#e11d48', enabled: true }
+        ];
+
+        // Global Chart Instances
+        let timeSeriesChart = null;
+        let cobwebChart = null;
+        let isLogScale = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDeviationsUI();
+            initCharts();
+            setupEventListeners();
+            runSimulation();
+        });
+
+        // Render Checkboxes for Deviation Percentages
+        function renderDeviationsUI() {
+            const container = document.getElementById('deviationsGrid');
+            container.innerHTML = '';
+
+            DEVIATION_CONFIG.forEach((dev, index) => {
+                const label = document.createElement('label');
+                label.className = `flex items-center space-x-2 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition text-xs`;
+                
+                label.innerHTML = `
+                    <input type="checkbox" data-index="${index}" ${dev.enabled ? 'checked' : ''} 
+                        class="dev-checkbox rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900">
+                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${dev.color}"></span>
+                    <span class="text-slate-300 font-mono">${dev.pct === 0 ? 'Base' : '+' + dev.pct + '%'}</span>
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function initCharts() {
+            // Chart.js Theme Defaults
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = 'Inter, sans-serif';
+
+            // 1. Time Series Chart Context
+            const ctxTS = document.getElementById('timeSeriesChart').getContext('2d');
+            timeSeriesChart = new Chart(ctxTS, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 12, usePointStyle: true, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(6)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Iteration (n)', color: '#64748b' },
+                            grid: { color: '#1e293b' }
+                        },
+                        y: {
+                            type: isLogScale ? 'logarithmic' : 'linear',
+                            title: { display: true, text: 'Xₙ Value', color: '#64748b' },
+                            grid: { color: '#1e293b' }
+                        }
+                    }
+                }
+            });
+
+            // 2. Cobweb Plot Context
+            const ctxCobweb = document.getElementById('cobwebChart').getContext('2d');
+            cobwebChart = new Chart(ctxCobweb, {
+                type: 'scatter',
+                data: { datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 300 },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 10, font: { size: 10 } }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: { display: true, text: 'Xₙ', color: '#64748b' },
+                            grid: { color: '#1e293b' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Xₙ₊₁', color: '#64748b' },
+                            grid: { color: '#1e293b' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function runSimulation() {
+            const eqStr = document.getElementById('eqInput').value.trim();
+            const x0 = parseFloat(document.getElementById('x0Input').value);
+            const N = parseInt(document.getElementById('iterInput').value);
+            const eqError = document.getElementById('eqError');
+
+            if (isNaN(x0) || isNaN(N) || N < 1) return;
+
+            // Validate and compile math equation using math.js
+            let compiledExpr;
+            try {
+                compiledExpr = math.compile(eqStr);
+                // Test evaluation
+                compiledExpr.evaluate({ x: x0 });
+                eqError.classList.add('hidden');
+            } catch (err) {
+                eqError.querySelector('span').textContent = 'Invalid math syntax. Check operators & parentheses.';
+                eqError.classList.remove('hidden');
+                return;
+            }
+
+            // Function wrapper
+            const f = (val) => {
+                try {
+                    const res = compiledExpr.evaluate({ x: val });
+                    return typeof res === 'number' && !isNaN(res) && isFinite(res) ? res : NaN;
+                } catch {
+                    return NaN;
+                }
+            };
+
+            // Collect active deviation percentages
+            const activeDevs = [];
+            document.querySelectorAll('.dev-checkbox').forEach(cb => {
+                const idx = parseInt(cb.getAttribute('data-index'));
+                DEVIATION_CONFIG[idx].enabled = cb.checked;
+                if (cb.checked) {
+                    activeDevs.push(DEVIATION_CONFIG[idx]);
+                }
+            });
+
+            // 1. Calculate Time Series Data
+            const iterationLabels = Array.from({ length: N + 1 }, (_, i) => i);
+            const datasets = [];
+            const summaryData = [];
+
+            activeDevs.forEach(dev => {
+                const startX = dev.pct === 0 ? x0 : x0 * (1 + dev.pct / 100);
+                const trajectory = [startX];
+                let current = startX;
+
+                for (let i = 0; i < N; i++) {
+                    current = f(current);
+                    if (isNaN(current) || Math.abs(current) > 1e12) {
+                        trajectory.push(NaN); // Divergent/out of bounds
+                    } else {
+                        trajectory.push(current);
+                    }
+                }
+
+                datasets.push({
+                    label: `${dev.label} (${startX.toFixed(4)})`,
+                    data: trajectory,
+                    borderColor: dev.color,
+                    backgroundColor: dev.color,
+                    borderWidth: dev.pct === 0 ? 2.5 : 1.5,
+                    pointRadius: N > 100 ? 0 : (dev.pct === 0 ? 3 : 1.5),
+                    tension: 0.1
+                });
+
+                const finalVal = trajectory[trajectory.length - 1];
+                summaryData.push({
+                    label: dev.label,
+                    start: startX,
+                    final: finalVal,
+                    color: dev.color
+                });
+            });
+
+            // Update Time Series Chart
+            timeSeriesChart.data.labels = iterationLabels;
+            timeSeriesChart.data.datasets = datasets;
+            timeSeriesChart.update();
+
+            // 2. Generate Cobweb Plot for Base X0
+            generateCobwebPlot(f, x0, N);
+
+            // 3. Update Summary Table
+            updateSummaryTable(summaryData);
+        }
+
+        function generateCobwebPlot(f, x0, N) {
+            // Compute cobweb steps
+            const cobwebPoints = [];
+            let curr = x0;
+            let minX = curr;
+            let maxX = curr;
+
+            cobwebPoints.push({ x: curr, y: 0 });
+
+            for (let i = 0; i < Math.min(N, 100); i++) {
+                const next = f(curr);
+                if (isNaN(next) || Math.abs(next) > 1e6) break;
+
+                // Step 1: Vertical line to f(x)
+                cobwebPoints.push({ x: curr, y: next });
+                // Step 2: Horizontal line to y=x line
+                cobwebPoints.push({ x: next, y: next });
+
+                minX = Math.min(minX, curr, next);
+                maxX = Math.max(maxX, curr, next);
+                curr = next;
+            }
+
+            // Margin for curve display
+            const span = Math.max(Math.abs(maxX - minX), 1.0);
+            const plotMin = minX - span * 0.25;
+            const plotMax = maxX + span * 0.25;
+
+            // Generate Curve $y = f(x)$ and Line $y = x$
+            const curvePoints = [];
+            const diagonalPoints = [];
+            const samples = 120;
+            const step = (plotMax - plotMin) / samples;
+
+            for (let i = 0; i <= samples; i++) {
+                const xVal = plotMin + i * step;
+                const yVal = f(xVal);
+                if (!isNaN(yVal) && Math.abs(yVal) < 1e6) {
+                    curvePoints.push({ x: xVal, y: yVal });
+                }
+                diagonalPoints.push({ x: xVal, y: xVal });
+            }
+
+            cobwebChart.data.datasets = [
+                {
+                    label: 'f(x) Curve',
+                    data: curvePoints,
+                    showLine: true,
+                    borderColor: '#c084fc',
+                    borderWidth: 2,
+                    pointRadius: 0
+                },
+                {
+                    label: 'y = x Line',
+                    data: diagonalPoints,
+                    showLine: true,
+                    borderColor: '#475569',
+                    borderWidth: 1.5,
+                    borderDash: [4, 4],
+                    pointRadius: 0
+                },
+                {
+                    label: 'Cobweb Path',
+                    data: cobwebPoints,
+                    showLine: true,
+                    borderColor: '#38bdf8',
+                    borderWidth: 1.2,
+                    pointRadius: 1,
+                    pointBackgroundColor: '#38bdf8'
+                }
+            ];
+
+            cobwebChart.update();
+        }
+
+        function updateSummaryTable(data) {
+            const tbody = document.getElementById('summaryTableBody');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition';
+
+                const finalFormatted = isNaN(item.final) 
+                    ? '<span class="text-rose-400">∞ (Diverged)</span>' 
+                    : Number(item.final).toFixed(6);
+
+                tr.innerHTML = `
+                    <td class="py-2 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full" style="background-color: ${item.color}"></span>
+                        <span class="font-medium text-slate-200">${item.label}</span>
+                    </td>
+                    <td class="py-2 text-slate-400">${Number(item.start).toFixed(4)}</td>
+                    <td class="py-2 text-right font-bold text-indigo-300">${finalFormatted}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function setupEventListeners() {
+            // Run on button click
+            document.getElementById('runBtn').addEventListener('click', runSimulation);
+
+            // Auto-run on input changes with debounce
+            let debounceTimer;
+            const triggerAutoRun = () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(runSimulation, 250);
+            };
+
+            document.getElementById('eqInput').addEventListener('input', triggerAutoRun);
+            document.getElementById('x0Input').addEventListener('input', triggerAutoRun);
+            document.getElementById('iterInput').addEventListener('input', triggerAutoRun);
+
+            // Checkbox changes
+            document.getElementById('deviationsGrid').addEventListener('change', (e) => {
+                if (e.target.classList.contains('dev-checkbox')) {
+                    runSimulation();
+                }
+            });
+
+            // Preset Buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('eqInput').value = btn.getAttribute('data-eq');
+                    document.getElementById('x0Input').value = btn.getAttribute('data-x0');
+                    document.getElementById('iterInput').value = btn.getAttribute('data-n');
+                    runSimulation();
+                });
+            });
+
+            // Select / Clear All Deviations
+            document.getElementById('selectAllDevs').addEventListener('click', () => {
+                document.querySelectorAll('.dev-checkbox').forEach(cb => cb.checked = true);
+                runSimulation();
+            });
+
+            document.getElementById('clearDevs').addEventListener('click', () => {
+                document.querySelectorAll('.dev-checkbox').forEach((cb, idx) => {
+                    // Keep base X0 enabled
+                    cb.checked = (idx === 0);
+                });
+                runSimulation();
+            });
+
+            // Toggle Logarithmic scale on Y-axis
+            const toggleLogBtn = document.getElementById('toggleLogScale');
+            toggleLogBtn.addEventListener('click', () => {
+                isLogScale = !isLogScale;
+                toggleLogBtn.textContent = `Scale: ${isLogScale ? 'Logarithmic' : 'Linear'}`;
+                timeSeriesChart.options.scales.y.type = isLogScale ? 'logarithmic' : 'linear';
+                timeSeriesChart.update();
+            });
+        }
+    </script>
+</body>
+</html>
